@@ -1,9 +1,10 @@
 #!/bin/sh
 # codex-seat: run one OpenAI model as a pstack panel seat through the Codex CLI (codex exec).
-# usage: printf '%s' "$PROMPT" | codex-seat [--write] <model> [effort] [cwd]
+# usage: printf '%s' "$PROMPT" | codex-seat [--browser] [--write] <model> [effort] [cwd]
+#   --browser : check the configured CUA tool and prepend browser/login operation instructions.
 #   --write : workspace-write sandbox. Codex may edit files under cwd, so pass only a git
 #             worktree reserved for this seat, never the main working tree.
-#             Without --write the sandbox is read-only (no file writes at all).
+#             Without --write shell filesystem access is read-only. MCP/browser effects are separate.
 #   model   : gpt-6-astra | gpt-6.1-sol | gpt-6-sol | gpt-6-luna ...
 #   effort  : low | medium | high | xhigh | max   (default: high)
 #   cwd     : directory Codex works in (default: current directory)
@@ -11,8 +12,17 @@
 # stdout. Exit 1 with a reason on stderr when codex fails, 2 on bad arguments.
 set -eu
 write=0
-if [ "${1:-}" = "--write" ]; then write=1; shift; fi
-model="${1:?usage: codex-seat [--write] <model> [effort] [cwd] < prompt}"
+browser=0
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --write) write=1; shift ;;
+    --browser) browser=1; shift ;;
+    --) shift; break ;;
+    --*) echo "codex-seat: unknown option '$1'" >&2; exit 2 ;;
+    *) break ;;
+  esac
+done
+model="${1:?usage: codex-seat [--browser] [--write] <model> [effort] [cwd] < prompt}"
 effort="${2:-high}"
 dir="${3:-$PWD}"
 case "$effort" in low|medium|high|xhigh|max) ;; *) echo "codex-seat: unknown effort '$effort'" >&2; exit 2 ;; esac
@@ -26,14 +36,33 @@ else
   sandbox=read-only
   gitcheck="--skip-git-repo-check"
 fi
+root="$(cd "$(dirname "$0")/.." && pwd)"
+if [ "$browser" -eq 1 ]; then
+  command -v node >/dev/null 2>&1 || { echo "codex-seat: --browser requires Node.js" >&2; exit 2; }
+  node "$root/scripts/check-browser.mjs" || exit 2
+fi
 out="$(mktemp -t codex-seat.out)"; err="$(mktemp -t codex-seat.err)"
 trap 'rm -f "$out" "$err"' EXIT
+diagnostic="$err"
+# Browser tool output can contain live authentication material; never capture it.
+if [ "$browser" -eq 1 ]; then diagnostic=/dev/null; fi
+input_prompt() {
+  if [ "$browser" -eq 1 ]; then
+    cat "$root/docs/browser-operation.md"
+    printf '\n\nUser-authorized task follows:\n'
+  fi
+  cat
+}
 # $gitcheck is intentionally unquoted: empty or a single flag.
-if codex exec $gitcheck --ephemeral --sandbox "$sandbox" --color never \
-     -C "$dir" -m "$model" -c "model_reasoning_effort=\"$effort\"" -o "$out" - >/dev/null 2>"$err"; then
+if input_prompt | codex exec $gitcheck --ephemeral --sandbox "$sandbox" --color never \
+     -C "$dir" -m "$model" -c "model_reasoning_effort=\"$effort\"" -o "$out" - >/dev/null 2>"$diagnostic"; then
   cat "$out"
 else
   echo "codex-seat: codex exec failed (model=$model effort=$effort sandbox=$sandbox). Check 'codex login status' and the model id." >&2
-  tail -n 20 "$err" >&2
+  if [ "$browser" -eq 1 ]; then
+    echo "codex-seat: browser task failed. Raw tool output is withheld because login screens may contain secrets." >&2
+  else
+    tail -n 20 "$err" >&2
+  fi
   exit 1
 fi

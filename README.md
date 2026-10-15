@@ -56,7 +56,7 @@ Claude Code の中で次を実行します。
 `codex-seat` は単体でも使えます。
 
 ```bash
-printf '%s' "レビューの依頼文" | ~/.claude/plugins/cache/pstack-gpt-seat/gpt-seat/0.1.2/scripts/codex-seat --write gpt-6-astra high /path/to/worktree
+printf '%s' "レビューの依頼文" | ~/.claude/plugins/cache/pstack-gpt-seat/gpt-seat/0.1.3/scripts/codex-seat --write gpt-6-astra high /path/to/worktree
 ```
 
 ## 標準の役割分担（0.1.2以降）
@@ -64,11 +64,33 @@ printf '%s' "レビューの依頼文" | ~/.claude/plugins/cache/pstack-gpt-seat
 Claudeが窓口になり、依頼の整理、Codexの呼び出し、結果の確認、成果の統合を担当します。ログイン操作とファイル作成・編集・書き込みはCodexへ任せます。pstack外の通常作業にも適用し、ユーザーが担当を指定した依頼はその指定を優先します。
 
 - **ファイル編集**: Claudeが専用のgit worktreeと作業指示を用意し、`codex-seat --write` でCodexを実行します。実ファイルと差分、必要なテストで結果を確認してから、Claudeが成果を統合・コミットします。Git管理外のファイルは一時Git作業場所で編集し、確認後に元の保存先へ反映します。
-- **サービスのログイン**: ブラウザ・アプリ操作ツールを持つCodexへ任せ、既存のログイン状態や正規の自動入力を利用します。CLIからデスクトップ版のツールは自動継承されません。このプラグインだけでブラウザ連携が追加されるわけではなく、利用可能な連携経路がない場合は具体的な制約と必要最小限の引き継ぎを伝えます。
+- **サービスのログイン**: `codex-seat --browser` でCodexを呼び出し、設定済みのCUA（ブラウザ・アプリ操作）を使います。既存のログイン状態や正規の自動入力を利用します。実際の接続先とログイン後の画面を確認し、利用可能な経路がない場合は具体的な制約を伝えます。
 - **Codex自体の初回・再認証**: Codexを呼べる状態にするため、Claudeが親環境でログインを開始して確認します。認証前のCodexへ自身の認証を依頼することはありません。[OpenAI公式の認証手順](https://learn.chatgpt.com/docs/auth)に従います。
 - **本人の操作が必要な場合**: 生体認証・端末承認などの実際の障害がある工程だけ依頼し、完了後は続きを担当します。秘密情報をチャットやリポジトリへ記録しません。担当分けによって承認やサンドボックスを無効にはしません。
 
 起動時の指示はプラグインのSessionStartフックで読み込まれます。このリポジトリでの具体的な運用は [AGENTS.md](AGENTS.md) を [CLAUDE.md](CLAUDE.md) からも読み込みます。以前の「Codexには作らせない」「ログインは必ず本人が行う」というローカル指示がある場合は、新しい担当分けとの矛盾を解消してください。プラグイン更新後はClaude Codeの新しいセッションで使います。
+
+## Claudeからブラウザを操作する（0.1.3以降）
+
+```bash
+# CUA設定だけを確認（認証情報は表示しない）
+node /path/to/gpt-seat/scripts/check-browser.mjs
+
+# ClaudeのBashから呼ぶ。依頼に対象サービスと完了条件を含める。
+printf '%s' "GitHubを開き、既存ログインを使って指定の非公開リポジトリを表示し、認証状態を確認して" | /path/to/gpt-seat/scripts/codex-seat --browser gpt-6-astra high /path/to/project
+```
+
+スクリーンショットなどを保存する場合は `--browser --write` と専用worktreeを使います。`--browser` はCUAの設定チェックと[操作手順](plugins/gpt-seat/docs/browser-operation.md)を追加します。公式のCUA連携がCodex側で有効であり、Macのアプリ操作権限が利用できることが前提です。MCPの設定方法は[OpenAI公式ドキュメント](https://learn.chatgpt.com/docs/extend/mcp)を参照してください。個人の設定ファイルや認証情報はこのリポジトリへコピーしません。
+
+接続済みブラウザがあれば使用し、接続一覧が空でもChromeアプリの操作が使える場合はCUAの `cua.getApp("Google Chrome")` で画面を操作します。ユーザーがブラウザを指定した場合はその指定を優先します。ClaudeとCodexで同じブラウザを同時操作しません。設定チェックの成功と、ブラウザ接続・認証成功は別々に確認します。
+
+ブラウザモードでは認証画面を含み得る生のツール診断出力を保存・表示しません。Codexは秘密情報を除いた最終結果と、必要な場合だけ認証情報を含まない成果画面を返します。`read-only` はシェルのファイル操作に対する制約で、ブラウザ上の送信・変更を防ぐものではありません。依頼の範囲と通常の承認を守ります。
+
+### 動作確認（2026-10-16）
+
+このMacで、Claude Code → `codex-seat --browser --write` → Codex（gpt-6-astra）→ CUAのChromeアプリ操作を確認しました。親Codexデスクトップのセッション識別用環境変数を渡さない起動でも、GitHubのログイン入口から既存セッションを再利用し、対象の非公開リポジトリとログイン済みアカウント表示を確認できました。保存された成果画面も確認済みです。未ログイン状態からの新規Google認証・MFA入力は今回のテスト対象には含みません。
+
+ラッパーの回帰確認は `python3 -m unittest discover -s tests -v` で実行できます。認証情報を使わず、通常モード、ブラウザモードと書き込みモードの組み合わせ、接続設定不足での停止、診断出力の秘匿を検証します。
 
 ## 制約
 
