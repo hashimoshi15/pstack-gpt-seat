@@ -1,0 +1,39 @@
+#!/bin/sh
+# codex-seat: run one OpenAI model as a pstack panel seat through the Codex CLI (codex exec).
+# usage: printf '%s' "$PROMPT" | codex-seat [--write] <model> [effort] [cwd]
+#   --write : workspace-write sandbox. Codex may edit files under cwd, so pass only a git
+#             worktree reserved for this seat, never the main working tree.
+#             Without --write the sandbox is read-only (no file writes at all).
+#   model   : gpt-6-astra | gpt-6.1-sol | gpt-6-sol | gpt-6-luna ...
+#   effort  : low | medium | high | xhigh | max   (default: high)
+#   cwd     : directory Codex works in (default: current directory)
+# Network stays off inside the sandbox (Codex default). Prints the model's final message on
+# stdout. Exit 1 with a reason on stderr when codex fails, 2 on bad arguments.
+set -eu
+write=0
+if [ "${1:-}" = "--write" ]; then write=1; shift; fi
+model="${1:?usage: codex-seat [--write] <model> [effort] [cwd] < prompt}"
+effort="${2:-high}"
+dir="${3:-$PWD}"
+case "$effort" in low|medium|high|xhigh|max) ;; *) echo "codex-seat: unknown effort '$effort'" >&2; exit 2 ;; esac
+[ -d "$dir" ] || { echo "codex-seat: no such directory '$dir'" >&2; exit 2; }
+if [ "$write" -eq 1 ]; then
+  sandbox=workspace-write
+  gitcheck=""
+  git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+    || { echo "codex-seat: --write needs a git worktree, got '$dir'" >&2; exit 2; }
+else
+  sandbox=read-only
+  gitcheck="--skip-git-repo-check"
+fi
+out="$(mktemp -t codex-seat.out)"; err="$(mktemp -t codex-seat.err)"
+trap 'rm -f "$out" "$err"' EXIT
+# $gitcheck is intentionally unquoted: empty or a single flag.
+if codex exec $gitcheck --ephemeral --sandbox "$sandbox" --color never \
+     -C "$dir" -m "$model" -c "model_reasoning_effort=\"$effort\"" -o "$out" - >/dev/null 2>"$err"; then
+  cat "$out"
+else
+  echo "codex-seat: codex exec failed (model=$model effort=$effort sandbox=$sandbox). Check 'codex login status' and the model id." >&2
+  tail -n 20 "$err" >&2
+  exit 1
+fi

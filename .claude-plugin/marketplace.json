@@ -1,0 +1,16 @@
+{
+  "name": "pstack-gpt-seat",
+  "owner": {
+    "name": "ichigo",
+    "url": "https://github.com/hashimoshi15"
+  },
+  "description": "Adds a GPT (Codex CLI) seat to pstack's arena, architect and interrogate panels in Claude Code. Layers on top of the unmodified pstack plugin.",
+  "plugins": [
+    {
+      "name": "gpt-seat",
+      "source": "./plugins/gpt-seat",
+      "description": "GPT seat for pstack: one gpt-6-astra runner or reviewer per panel through the Codex CLI, in its own worktree. Injected by a SessionStart hook; no CLAUDE.md editing.",
+      "version": "0.1.0"
+    }
+  ]
+}

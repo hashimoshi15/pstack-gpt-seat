@@ -1,0 +1,13 @@
+{
+  "name": "gpt-seat",
+  "version": "0.1.0",
+  "description": "GPT seat for pstack on Claude Code: adds one gpt-6-astra runner or reviewer to arena, architect and interrogate through the Codex CLI (codex exec), each in its own git worktree. Requires the pstack plugin and a logged-in Codex CLI.",
+  "author": {
+    "name": "ichigo",
+    "url": "https://github.com/hashimoshi15"
+  },
+  "homepage": "https://github.com/hashimoshi15/pstack-gpt-seat",
+  "repository": "https://github.com/hashimoshi15/pstack-gpt-seat",
+  "license": "MIT",
+  "keywords": ["pstack", "codex", "gpt", "multi-model", "arena", "interrogate", "claude-code"]
+}
