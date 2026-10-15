@@ -2,7 +2,7 @@
 
 Claude Code 用 [pstack](https://github.com/michael-denyer/pstack-claude) に、GPT（Codex CLI 経由の gpt-6-astra）の席を1つ足すプラグインです。pstack 本体には手を入れず、その上に重ねて使います。
 
-**English:** A companion plugin for pstack on Claude Code. It adds one GPT runner or reviewer (gpt-6-astra through the Codex CLI, in its own git worktree) to pstack's `arena`, `architect` and `interrogate` panels, leaving pstack itself untouched. Install both marketplaces, run `/gpt-seat:setup-gpt-seat`, sign in with `codex login`, and start a new session. Japanese documentation follows.
+**English:** A companion plugin for pstack on Claude Code. It adds one GPT runner or reviewer (gpt-6-astra through the Codex CLI, in its own git worktree) to pstack's `arena`, `architect` and `interrogate` panels, leaving pstack itself untouched. Install both marketplaces, run `/gpt-seat:setup-gpt-seat`, let Claude Code assist with Codex sign-in if needed, and start a new session. Japanese documentation follows.
 
 ## 何が変わるか
 
@@ -25,7 +25,7 @@ Claude Code の `Agent` ツールは Claude のモデル名しか受け付けな
 ## 前提
 
 - Claude Code と、[pstack-claude](https://github.com/michael-denyer/pstack-claude) のプラグイン。
-- [Codex CLI](https://developers.openai.com/codex/cli)（0.154 以降）と ChatGPT のサブスクリプション。`codex login` でサインインしておきます。
+- [Codex CLI](https://developers.openai.com/codex/cli)（0.154 以降）と ChatGPT のサブスクリプション。未ログインなら、セットアップ中にClaude Codeからログインを開始できます。
 - Node.js 18 以上（pstack 付属のスクリプト用）。
 - git。
 
@@ -43,16 +43,20 @@ Claude Code の中で次を実行します。
 
 `setup-gpt-seat` は、pstack のモデルシート `~/.claude/pstack-models.md` が無ければ推奨値（[templates/pstack-models.md](plugins/gpt-seat/templates/pstack-models.md)）で作り、`~/.claude/CLAUDE.md` にその読み込み行を足し、Codex CLI と Node.js とログイン状態を確認します。既にシートがある場合は触らず、パネルの推奨値を案内します。
 
-最後に、自分の端末で `codex login` を済ませ、新しいセッションを開いてください。席の指示はセッション開始時に注入されます。
+未ログインなら、Claude Codeが `codex login` を開始し、利用できるブラウザ操作ツールで認証を進めます。本人の操作が必要な認証画面や、ブラウザ操作ツールがない場合だけ、その操作を依頼します。ログイン済みなら既存の認証をそのまま使います。完了後に `codex login status` で確認し、セットアップを続けます。
+
+認証だけを行う場合は `/gpt-seat:login-codex` を使えます。通常のログインでブラウザやコールバックに問題がある場合は、対応環境で `codex login --device-auth` に切り替えます。詳細は [OpenAI公式の認証手順](https://learn.chatgpt.com/docs/auth) を参照してください。
+
+最後に新しいセッションを開いてください。席の指示はセッション開始時に注入されます。
 
 ## 使い方
 
-普段どおり pstack を使うだけです。`/pstack:arena` を回すと候補が opus・fable・gpt-6-astra の3本になり、`/pstack:interrogate` のレビュアー一覧に gpt-6-astra が加わります。Codex にログインしていないときは GPT 席を飛ばして Claude だけで進み、その旨が出力されます。
+普段どおり pstack を使うだけです。`/pstack:arena` を回すと候補が opus・fable・gpt-6-astra の3本になり、`/pstack:interrogate` のレビュアー一覧に gpt-6-astra が加わります。Codex にログインしていないときは、GPT 席を起動する前にログインを進めます。認証がキャンセルされた場合や失敗した場合は、その回の GPT 席を飛ばして Claude だけで進み、理由を伝えます。
 
 `codex-seat` は単体でも使えます。
 
 ```bash
-printf '%s' "レビューの依頼文" | ~/.claude/plugins/cache/pstack-gpt-seat/gpt-seat/0.1.0/scripts/codex-seat --write gpt-6-astra high /path/to/worktree
+printf '%s' "レビューの依頼文" | ~/.claude/plugins/cache/pstack-gpt-seat/gpt-seat/0.1.1/scripts/codex-seat --write gpt-6-astra high /path/to/worktree
 ```
 
 ## 制約
