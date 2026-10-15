@@ -10,7 +10,7 @@
       "name": "gpt-seat",
       "source": "./plugins/gpt-seat",
       "description": "GPT seat for pstack: one gpt-6-astra runner or reviewer per panel through the Codex CLI, in its own worktree. Injected by a SessionStart hook; no CLAUDE.md editing.",
-      "version": "0.1.1"
+      "version": "0.1.2"
     }
   ]
 }

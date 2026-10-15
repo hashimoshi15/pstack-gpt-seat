@@ -56,8 +56,19 @@ Claude Code の中で次を実行します。
 `codex-seat` は単体でも使えます。
 
 ```bash
-printf '%s' "レビューの依頼文" | ~/.claude/plugins/cache/pstack-gpt-seat/gpt-seat/0.1.1/scripts/codex-seat --write gpt-6-astra high /path/to/worktree
+printf '%s' "レビューの依頼文" | ~/.claude/plugins/cache/pstack-gpt-seat/gpt-seat/0.1.2/scripts/codex-seat --write gpt-6-astra high /path/to/worktree
 ```
+
+## 標準の役割分担（0.1.2以降）
+
+Claudeが窓口になり、依頼の整理、Codexの呼び出し、結果の確認、成果の統合を担当します。ログイン操作とファイル作成・編集・書き込みはCodexへ任せます。pstack外の通常作業にも適用し、ユーザーが担当を指定した依頼はその指定を優先します。
+
+- **ファイル編集**: Claudeが専用のgit worktreeと作業指示を用意し、`codex-seat --write` でCodexを実行します。実ファイルと差分、必要なテストで結果を確認してから、Claudeが成果を統合・コミットします。Git管理外のファイルは一時Git作業場所で編集し、確認後に元の保存先へ反映します。
+- **サービスのログイン**: ブラウザ・アプリ操作ツールを持つCodexへ任せ、既存のログイン状態や正規の自動入力を利用します。CLIからデスクトップ版のツールは自動継承されません。このプラグインだけでブラウザ連携が追加されるわけではなく、利用可能な連携経路がない場合は具体的な制約と必要最小限の引き継ぎを伝えます。
+- **Codex自体の初回・再認証**: Codexを呼べる状態にするため、Claudeが親環境でログインを開始して確認します。認証前のCodexへ自身の認証を依頼することはありません。[OpenAI公式の認証手順](https://learn.chatgpt.com/docs/auth)に従います。
+- **本人の操作が必要な場合**: 生体認証・端末承認などの実際の障害がある工程だけ依頼し、完了後は続きを担当します。秘密情報をチャットやリポジトリへ記録しません。担当分けによって承認やサンドボックスを無効にはしません。
+
+起動時の指示はプラグインのSessionStartフックで読み込まれます。このリポジトリでの具体的な運用は [AGENTS.md](AGENTS.md) を [CLAUDE.md](CLAUDE.md) からも読み込みます。以前の「Codexには作らせない」「ログインは必ず本人が行う」というローカル指示がある場合は、新しい担当分けとの矛盾を解消してください。プラグイン更新後はClaude Codeの新しいセッションで使います。
 
 ## 制約
 
