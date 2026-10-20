@@ -56,7 +56,7 @@ Claude Code の中で次を実行します。
 `codex-seat` は単体でも使えます。
 
 ```bash
-printf '%s' "レビューの依頼文" | ~/.claude/plugins/cache/pstack-gpt-seat/gpt-seat/0.1.3/scripts/codex-seat --write gpt-6-astra high /path/to/worktree
+printf '%s' "レビューの依頼文" | ~/.claude/plugins/cache/pstack-gpt-seat/gpt-seat/0.1.4/scripts/codex-seat --write gpt-6-astra high /path/to/worktree
 ```
 
 ## 標準の役割分担（0.1.2以降）
@@ -82,7 +82,7 @@ printf '%s' "GitHubを開き、既存ログインを使って指定の非公開�
 
 スクリーンショットなどを保存する場合は `--browser --write` と専用worktreeを使います。`--browser` はCUAの設定チェックと[操作手順](plugins/gpt-seat/docs/browser-operation.md)を追加します。公式のCUA連携がCodex側で有効であり、Macのアプリ操作権限が利用できることが前提です。MCPの設定方法は[OpenAI公式ドキュメント](https://learn.chatgpt.com/docs/extend/mcp)を参照してください。個人の設定ファイルや認証情報はこのリポジトリへコピーしません。
 
-接続済みブラウザがあれば使用し、接続一覧が空でもChromeアプリの操作が使える場合はCUAの `cua.getApp("Google Chrome")` で画面を操作します。ユーザーがブラウザを指定した場合はその指定を優先します。ClaudeとCodexで同じブラウザを同時操作しません。設定チェックの成功と、ブラウザ接続・認証成功は別々に確認します。
+接続済みブラウザがあれば使用し、接続一覧が空でもChromeアプリの操作が使える場合はCUAの `cua.getApp("Google Chrome")` で画面を操作します。ユーザーがブラウザを指定した場合はその指定を優先します。ClaudeとCodexで同じブラウザを同時操作しません。 ClaudeはCodexが結果または本人操作の必要箇所を返すまで待機します。Bashには十分な待機時間（例：`timeout: 600000`）と `run_in_background: false` を明示し、実行中IDが返った場合は利用可能な結果取得ツールで完了を待ちます。起動だけで非対話のClaudeを終了すると子Codexも止まるため、起動成功を完了とは扱いません。設定チェックの成功と、ブラウザ接続・認証成功は別々に確認します。
 
 ブラウザモードでは認証画面を含み得る生のツール診断出力を保存・表示しません。Codexは秘密情報を除いた最終結果と、必要な場合だけ認証情報を含まない成果画面を返します。`read-only` はシェルのファイル操作に対する制約で、ブラウザ上の送信・変更を防ぐものではありません。依頼の範囲と通常の承認を守ります。
 
