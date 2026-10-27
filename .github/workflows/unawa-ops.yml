@@ -1,0 +1,110 @@
+name: unawa-ops
+
+# うな和の日次運用（Mac miniに依存しない版）。時刻はUTC表記、括弧内が日本時間。
+# 定期実行はリポジトリ変数 UNAWA_OPS_ENABLED=true にしたときだけ動く。手動実行はいつでも可。
+on:
+  schedule:
+    - cron: '10 22 * * *'   # 07:10 食べログ照合
+    - cron: '40 23 * * *'   # 08:40 売上取得（前日分）
+    - cron: '20 1 * * *'    # 10:20 見張り
+    - cron: '40 9 * * *'    # 18:40 公開URL確認
+  workflow_dispatch:
+    inputs:
+      job:
+        description: '実行するジョブ'
+        type: choice
+        options: [tabelog, sales, health, urls]
+        default: health
+      date:
+        description: '売上の対象日（YYYY-MM-DD、空なら前日）'
+        required: false
+      approve_baseline:
+        description: '食べログの今回の内容を新しい基準にする'
+        type: boolean
+        default: false
+
+concurrency:
+  group: unawa-data
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    if: github.event_name == 'workflow_dispatch' || vars.UNAWA_OPS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ops/unawa
+    env:
+      UNAWA_DATA_DIR: ${{ github.workspace }}/data
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+      UNAWA_DRIVE_SALES_FOLDER_ID: ${{ vars.UNAWA_DRIVE_SALES_FOLDER_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ops/unawa/package-lock.json
+      - name: ジョブを決める
+        id: pick
+        run: |
+          case "${{ github.event.schedule }}" in
+            '10 22 * * *') job=tabelog ;;
+            '40 23 * * *') job=sales ;;
+            '20 1 * * *') job=health ;;
+            '40 9 * * *') job=urls ;;
+            *) job='${{ inputs.job }}' ;;
+          esac
+          echo "job=$job" >> "$GITHUB_OUTPUT"
+      - run: npm ci --no-audit --no-fund
+      - name: ブラウザを用意
+        if: steps.pick.outputs.job != 'health'
+        run: npx playwright install --with-deps chromium
+      - name: 保存先（unawa-data）を取り出す
+        run: scripts/data-branch.sh prepare "$UNAWA_DATA_DIR"
+      - name: 食べログ照合
+        if: steps.pick.outputs.job == 'tabelog'
+        env:
+          UNAWA_APPROVE_BASELINE: ${{ inputs.approve_baseline }}
+        run: npm run tabelog
+      - name: 売上取得（ASPIT）
+        if: steps.pick.outputs.job == 'sales'
+        continue-on-error: true
+        env:
+          ASPIT_LOGIN_ID: ${{ secrets.ASPIT_LOGIN_ID }}
+          ASPIT_PASSWORD: ${{ secrets.ASPIT_PASSWORD }}
+          ASPIT_COMPANY_CODE: ${{ secrets.ASPIT_COMPANY_CODE }}
+          UNAWA_SALES_DATE: ${{ inputs.date }}
+        run: npm run sales:aspit
+      - name: 売上取得（USEN）
+        if: steps.pick.outputs.job == 'sales'
+        continue-on-error: true
+        env:
+          USEN_LOGIN_ID: ${{ secrets.USEN_LOGIN_ID }}
+          USEN_PASSWORD: ${{ secrets.USEN_PASSWORD }}
+          UNAWA_SALES_DATE: ${{ inputs.date }}
+        run: npm run sales:usen
+      - name: 見張り
+        if: steps.pick.outputs.job == 'health'
+        run: npm run health
+      - name: 公開URL確認
+        if: steps.pick.outputs.job == 'urls'
+        run: npm run urls
+      - name: 失敗時の画面を残す
+        if: always() && hashFiles('ops/unawa/debug-*.png') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screens
+          path: ops/unawa/debug-*.png
+          retention-days: 7
+      - name: 結果を保存
+        if: always()
+        run: |
+          scripts/data-branch.sh commit "$UNAWA_DATA_DIR" "${{ steps.pick.outputs.job }} $(TZ=Asia/Tokyo date +%F)"

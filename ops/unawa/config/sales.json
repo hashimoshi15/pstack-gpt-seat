@@ -1,0 +1,24 @@
+{
+  "aspit": {
+    "loginUrl": "https://www.f-aspit.com/aspit2/logon/index",
+    "reportUrl": "https://www.f-aspit.com/aspit/food/ta/tar280/default.asp",
+    "menu": ["売上を分析する", "店舗別日次予実表"],
+    "stores": [
+      { "code": "1", "name": "京うな和本店 清水はなれ" },
+      { "code": "2", "name": "うな和 鶴舞" },
+      { "code": "3", "name": "うな和本店 名古屋駅" },
+      { "code": "4", "name": "京うな和本店 四条堺町" },
+      { "code": "5", "name": "京うなわ本店 祇園八坂" },
+      { "code": "6", "name": "うな和 泉" }
+    ]
+  },
+  "usen": {
+    "loginUrl": "https://umembers.usen.com/login",
+    "reportUrl": "https://u07.u-regi.com/sales_results/C_sales_results/sales_results_list",
+    "perStore": true,
+    "stores": [
+      { "code": "001", "name": "和く" },
+      { "code": "002", "name": "Fruits fondue" }
+    ]
+  }
+}
