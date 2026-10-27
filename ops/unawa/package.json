@@ -1,0 +1,21 @@
+{
+  "name": "unawa-ops",
+  "private": true,
+  "type": "module",
+  "description": "うな和の日次運用をMac miniに依存せずGitHub Actionsで動かすジョブ",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "tabelog": "node src/jobs/tabelog-check.mjs",
+    "urls": "node src/jobs/public-url-check.mjs",
+    "health": "node src/jobs/health.mjs",
+    "sales:aspit": "node src/jobs/sales.mjs aspit",
+    "sales:usen": "node src/jobs/sales.mjs usen"
+  },
+  "dependencies": {
+    "playwright": "1.48.2",
+    "cheerio": "1.0.0"
+  }
+}

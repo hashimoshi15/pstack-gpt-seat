@@ -1,0 +1,25 @@
+name: unawa-ops-test
+
+on:
+  pull_request:
+    paths: ['ops/unawa/**', '.github/workflows/unawa-ops*.yml']
+  push:
+    branches: [main]
+    paths: ['ops/unawa/**', '.github/workflows/unawa-ops*.yml']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ops/unawa
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ops/unawa/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: UNAWA_CHROMIUM_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")" npm test
